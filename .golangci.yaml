@@ -1,0 +1,238 @@
+version: "2"
+
+run:
+  timeout: 10m
+  go: "1.23.0"
+  concurrency: 4
+  # Only lint these directories - skip generated code entirely
+  modules-download-mode: readonly
+
+linters:
+  default: standard
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - misspell
+    - revive
+    - gosec
+    - gocritic
+  disable:
+    - cyclop
+    - depguard
+    - err113
+    - exhaustruct
+    - funlen
+    - gochecknoglobals
+    - gocognit
+    - godox
+    - godoclint
+    - gomoddirectives
+    - interfacebloat
+    - intrange
+    - ireturn
+    - lll
+    - mnd
+    - prealloc
+    - predeclared
+    - tagliatelle
+    - varnamelen
+    - wsl
+    - paralleltest
+
+  settings:
+    exhaustive:
+      default-signifies-exhaustive: true
+    forbidigo:
+      forbid:
+        - pattern: 'fmt\.Print.*(# Avoid debug logging)?'
+        - pattern: 'fmt\.Errorf.*(# Prefer lib/errors.Wrap)?'
+        - pattern: 'prometheus\.New.*(# Prefer promauto)?'
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+    importas:
+      alias:
+        - pkg: github.com/cometbft/cometbft/crypto/secp256k1
+          alias: k1
+      no-unaliased: true
+    misspell:
+      locale: US
+    nlreturn:
+      block-size: 2
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    revive:
+      severity: warning
+      enable-all-rules: true
+      rules:
+        # Disabled revive rules
+        # pkg/errors, pkg/log and pkg/utils are this repo's own packages by
+        # those names (Pugio shares them); renaming touches every import.
+        - name: package-naming
+          disabled: true
+        - name: file-header
+          disabled: true
+        - name: max-public-structs
+          disabled: true
+        - name: banned-characters
+          disabled: true
+        - name: cognitive-complexity
+          disabled: true
+        - name: function-length
+          disabled: true
+        - name: function-result-limit
+          disabled: true
+        - name: cyclomatic
+          disabled: true
+        - name: argument-limit
+          disabled: true
+        - name: line-length-limit
+          disabled: true
+        - name: var-naming
+          disabled: true
+        # Configured revive rules
+        - name: imports-blocklist
+          arguments:
+            - log
+            - errors
+            - github.com/pkg/errors
+            - github.com/gogo/protobuf/proto
+            - github.com/stretchr/testify/assert
+            - golang.org/x/exp/slices
+            - golang.org/x/exp/maps
+        - name: unhandled-error
+          # strings.Builder's writes are documented never to fail; Fprintf here
+          # targets a Builder or a ResponseWriter. Same list as Pugio.
+          arguments:
+            - fmt.Printf
+            - fmt.Println
+            - fmt.Fprintf
+            - strings.Builder.WriteString
+            - strings.Builder.WriteByte
+            - strings.Builder.WriteRune
+        - name: max-control-nesting
+          arguments:
+            - 10
+    staticcheck:
+      checks:
+        - all
+    testpackage:
+      skip-regexp: internal_test\.go
+    wrapcheck:
+      ignore-sigs:
+        - github.com/sid-technologies/replayvalidator/
+        - google.golang.org/grpc/status
+
+  exclusions:
+    generated: strict
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - ".*\\.pb\\.go$"
+      - ".*/oas_.*\\.go$"
+      - "^db/ent/.*"
+      - ".*/openapi/.*"
+      - "^packages/.*"
+      - "^apps/.*"
+      - "^node_modules/.*"
+    rules:
+      # pkg/errors is an intentional drop-in replacement for stdlib errors
+      - path: ^pkg/errors/
+        linters:
+          - revive
+        text: "imports-blocklist|var-naming"
+
+      # Relax linters for tests/scripts
+      - path: (.*)(_test|tutil|scripts)(.*)
+        linters:
+          - gosec
+          - revive
+          - wrapcheck
+          - perfsprint
+          - contextcheck
+          - maintidx
+          - dupl
+          - forcetypeassert
+
+      # Relax linters for e2e
+      - path: (.*)(e2e)(.*)
+        linters:
+          - perfsprint
+
+      # Relax linters for scripts/cli
+      - path: (.*)(scripts|cli)(.*)
+        linters:
+          - forbidigo
+        text: "debug"
+
+      # Text-based exclusions
+      - text: 'add-constant'
+        linters: [revive]
+      - text: 'fieldalignment'
+        linters: [govet]
+      - text: 'shadow: declaration of'
+        linters: [govet]
+      - text: 'shadows an import name'
+        linters: [revive]
+      - text: 'ifElseChain: rewrite if-else to switch statement'
+        linters: [gocritic]
+      - text: 'nested-structs: no nested structs are allowed'
+        linters: [revive]
+      - text: 'confusing-naming'
+        linters: [revive]
+      - text: 'flag-parameter'
+        linters: [revive]
+      - text: 'G306: Expect WriteFile permissions to be 0600 or less'
+        linters: [gosec]
+      - text: 'exported: type name will be used as'
+        linters: [revive]
+      - text: 'defer: prefer not to defer chains of function calls'
+        linters: [revive]
+      - text: 'go-require: do not use require in http handlers'
+        linters: [testifylint]
+      - text: 'the given struct should be annotated with the `toml` tag'
+        linters: [musttag]
+
+      # Loop variable issues (fixed in Go 1.22+)
+      - text: 'G601: Implicit memory aliasing in for loop'
+        linters: [gosec]
+      - text: 'loopclosure: loop variable'
+        linters: [govet]
+      - text: 'Range statement for test'
+        linters: [paralleltest]
+      - text: 'range-val-address: suspicious assignment of'
+        linters: [govet]
+      - text: 'exporting a pointer for the loop variable snapshot'
+        linters: [revive]
+
+issues:
+  fix: true
+
+formatters:
+  enable:
+    - gci
+    - gofmt
+  settings:
+    gci:
+      sections:
+        - standard
+        - prefix(github.com/sid-technologies)
+        - default
+        - blank
+      custom-order: true
+  exclusions:
+    generated: strict
+    paths:
+      - "^apps/.*"
+      - "^db/ent/.*"
+      - "^node_modules/.*"
+      - ".*/openapi/.*"
+      - "^scripts/.*"

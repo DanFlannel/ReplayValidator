@@ -1,0 +1,45 @@
+# ReplayValidator local stack.
+#
+#   make up                 # postgres + api, built from source (no registry needed)
+#   docker compose up -d --build
+#
+# Host-run alternative: `make dev` runs the API on the host against a
+# throwaway SQLite file instead of this stack.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: replayvalidator-postgres
+    environment:
+      POSTGRES_USER: replayvalidator
+      POSTGRES_PASSWORD: replayvalidator_dev
+      POSTGRES_DB: replayvalidator
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U replayvalidator -d replayvalidator"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: replayvalidator-api:local
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+      args:
+        SERVICE: api
+    container_name: replayvalidator-api
+    environment:
+      DATABASE_DB_CONN: postgres://replayvalidator:replayvalidator_dev@postgres:5432/replayvalidator?sslmode=disable
+      ALLOWED_ORIGINS: http://localhost:3000
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
