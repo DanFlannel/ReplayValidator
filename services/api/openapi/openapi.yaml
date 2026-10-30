@@ -1,0 +1,99 @@
+openapi: 3.0.3
+info:
+  title: ReplayValidator API
+  version: 1.0.0
+  description: |
+    The ReplayValidator API. Bootstrap scaffold — health/ready only, until the
+    real domain is built out on top of this.
+
+servers:
+  - url: http://localhost:8080
+
+tags:
+  - name: health
+    description: Liveness and readiness
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      operationId: HealthCheck
+      summary: Liveness check
+      description: |
+        Is the process up and serving HTTP? Deliberately shallow — see /ready
+        for dependency checks.
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+        default: { $ref: '#/components/responses/Unexpected' }
+
+  /ready:
+    get:
+      tags: [health]
+      operationId: ReadyCheck
+      summary: Readiness check
+      description: |
+        Are this service's dependencies actually reachable? Returns 503 when a
+        critical one is not.
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyCheckResponse'
+        '503':
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyCheckResponse'
+        default: { $ref: '#/components/responses/Unexpected' }
+
+components:
+  responses:
+    Unexpected:
+      description: Unexpected error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+        details:
+          type: string
+
+    HealthCheckResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        version:
+          type: string
+
+    ReadyCheckResponse:
+      type: object
+      required: [ready]
+      properties:
+        ready:
+          type: boolean
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+          description: Per-dependency status.
